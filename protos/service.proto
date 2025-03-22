@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package protoinfobot;
+
+option go_package = "./pkg/grpc";
+
+import "google/protobuf/empty.proto";
+
+// Вывод роута
+message FeedbackRequest {
+        // сайт с которого прилетела заявка
+        string site = 1;
+        // имя пользователя
+        string name = 2;
+        // контатная информация
+        string contact = 3;
+        // дополнительная информация от пользователя
+        string message = 4;
+        // страница с которой прелетел запрос
+        string feedback_url = 5;
+}
+
+// сервис информационного бота тг 
+service InfoBotService {
+        // Оставить пользовательскую заявку
+        rpc Feedback(FeedbackRequest) returns (google.protobuf.Empty);
+}
