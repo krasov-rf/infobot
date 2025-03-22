@@ -18,7 +18,7 @@ func (b *Bot) AddSiteMiddleware(user *serializers.User, f func(user *serializers
 	user.SetAction(serializers.ACTION_SITE_UPD_URL)
 	user.SetActionSite(&serializers.SiteSerializer{})
 
-	msg := tgbotapi.NewMessage(user.GetChatId(), "Введите URL сайта для добавления:")
+	msg := tgbotapi.NewMessage(user.GetUserId(), "Введите URL сайта для добавления:")
 	return &msg
 }
 

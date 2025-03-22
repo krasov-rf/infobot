@@ -5,7 +5,6 @@ import (
 )
 
 var (
-	// rest api
 	ErrorExist    = New(1, "запись существует")
 	ErrorNotExist = New(2, "запись не существует")
 )

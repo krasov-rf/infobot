@@ -2,12 +2,22 @@ package infobotdb
 
 import (
 	"bytes"
+	"crypto/rand"
 	"reflect"
 	"regexp"
 	"text/template"
 )
 
 var QUERY_LIMIT = 1
+
+func GenerateSecretKey(length int) (string, error) {
+	key := make([]byte, length)
+	_, err := rand.Read(key)
+	if err != nil {
+		return "", err
+	}
+	return string(key), nil
+}
 
 // генерация скрипта
 func Template(name, sqlt string, data *OptionsInfoBot) (string, error) {

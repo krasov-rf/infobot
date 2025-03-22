@@ -5,51 +5,80 @@ import (
 	"time"
 )
 
+// Телграмовские пользователь
 type UserSerializer struct {
-	UserId    int64  `db:"user_id"`
-	UserName  string `db:"user_name"`
+	// пользовательский тг ид
+	UserId int64 `db:"user_id"`
+	// username
+	UserName string `db:"user_name"`
+	// имя пользоователя
 	FirstName string `db:"first_name"`
-	LastName  string `db:"last_name"`
+	// фамилия пользователя
+	LastName string `db:"last_name"`
 }
 
+// Cайты для мониторинга
 type SiteSerializer struct {
-	Id              int    `db:"id"`
-	Url             string `db:"url"`
-	StatusCode      int    `db:"status_code"`
-	Monitoring      bool   `db:"monitoring"`
-	DurationMinutes int    `db:"duration_minutes"`
+	// идентификатор сайта
+	Id int `db:"id"`
+	// ссылка на сайт
+	Url string `db:"url"`
+	// работает ли сайт
+	Working bool `db:"working"`
+	// код ответа в ходе проверок на доступность
+	StatusCode int `db:"status_code"`
+	// проверяется ли на достпность шедулером
+	Monitoring bool `db:"monitoring"`
+	// период в течении которого производится проверка
+	DurationMinutes int `db:"duration_minutes"`
+	// секретный ключ для оставления фидбеков от пользователей по gRPC
+	SecretKey string `db:"secret_key"`
+	// время последней проверки сайта на доступность
+	LastCheckedAt time.Time `db:"last_checked_at"`
 }
 
-type ConversionSerializer struct {
-	Id        int       `db:"id"`
-	SiteId    int       `db:"site_id"`
-	Name      string    `db:"name"`
-	Contact   string    `db:"contact"`
-	Message   string    `db:"message"`
+// Обращения от пользователей с обслуживаемых сайтов
+type FeedbackSerializer struct {
+	// идентифатор обращения
+	Id int `db:"id"`
+	// идентификатор сайта с которого оно пришло
+	SiteId int `db:"site_id"`
+	// Имя обратившегося пользователя
+	Name string `db:"name"`
+	// Контакты для обратной связи с ним
+	Contact string `db:"contact"`
+	// Дополнительное сообщение которое он написал
+	Message string `db:"message"`
+	// Дата создания обращения
 	CreatedAt time.Time `db:"created_at"`
 }
 
+// закэшированый пользователь
 type User struct {
 	sync.Mutex
-	chatId     int64
-	action     ACTION_TYPE
+	// его идентификатор
+	userId int64
+	// действие которое в данный момент выполняет
+	action ACTION_TYPE
+	// сайт над которым в данный момент производит работу
 	actionSite *SiteSerializer
 
+	// смещение для пагинационных сообщений
 	offset int
 }
 
-// Установить userId (он же chatId), пользователя
-func (u *User) SetChatId(chatId int64) {
+// Установить userId, пользователя
+func (u *User) SetUserId(chatId int64) {
 	u.Lock()
 	defer u.Unlock()
-	u.chatId = chatId
+	u.userId = chatId
 }
 
-// Получить userId (он же chatId), пользователя
-func (u *User) GetChatId() int64 {
+// Получить userId, пользователя
+func (u *User) GetUserId() int64 {
 	u.Lock()
 	defer u.Unlock()
-	return u.chatId
+	return u.userId
 }
 
 // Установить действие, которое в данный момент выполняет пользователь
@@ -94,17 +123,20 @@ func (u *User) GetOffset() int {
 	return u.offset
 }
 
+// закэшированные пользователи
 type Users struct {
 	sync.Mutex
 	data map[int64]*User
 }
 
+// создать пользовательский кэш
 func NewUsers() *Users {
 	return &Users{
 		data: make(map[int64]*User),
 	}
 }
 
+// получить или создать и получить пользователя, если он не был закэширован
 func (u *Users) Get(userId int64) *User {
 	u.Lock()
 	defer u.Unlock()
@@ -112,7 +144,7 @@ func (u *Users) Get(userId int64) *User {
 	user, ok := u.data[userId]
 	if !ok {
 		user = &User{}
-		user.SetChatId(userId)
+		user.SetUserId(userId)
 		u.data[userId] = user
 	}
 	return user

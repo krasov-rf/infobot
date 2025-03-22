@@ -50,7 +50,7 @@ func (b *Bot) HB_HomePage(ctx BotContext, update tgbotapi.Update) {
 
 // вывести главную страницу
 func (b *Bot) MSG_HomePage(ctx BotContext, update tgbotapi.Update) {
-	msg := tgbotapi.NewMessage(ctx.user.GetChatId(), "Добро пожаловать!")
+	msg := tgbotapi.NewMessage(ctx.user.GetUserId(), "Добро пожаловать!")
 	ctx.user.SetAction(serializers.ACTION_NONE)
 	msg.ReplyMarkup = b.KeyboardHomePage(ctx.user)
 	_, err := b.Send(msg)
@@ -65,7 +65,7 @@ func (b *Bot) HB_Help(ctx BotContext, update tgbotapi.Update) {
 		Доступные команды:  
 		/start - Запустить бота
 	`
-	chatId := ctx.user.GetChatId()
+	chatId := ctx.user.GetUserId()
 	if chatId == b.config.TG_SUPER_ADMIN {
 		text += ""
 	}
@@ -79,7 +79,7 @@ func (b *Bot) HB_Help(ctx BotContext, update tgbotapi.Update) {
 
 // вывести телеграм id пользователя
 func (b *Bot) HB_TelegramId(ctx BotContext, update tgbotapi.Update) {
-	chatId := ctx.user.GetChatId()
+	chatId := ctx.user.GetUserId()
 	msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("Ваш телеграм ID: `%d`", chatId))
 	msg.ParseMode = "Markdown"
 	_, err := b.Send(msg)
@@ -154,7 +154,7 @@ func (b *Bot) HB_Feedback(ctx BotContext, update tgbotapi.Update) {
 	}
 
 	newMsg := tgbotapi.NewEditMessageTextAndMarkup(
-		ctx.user.GetChatId(),
+		ctx.user.GetUserId(),
 		update.CallbackQuery.Message.MessageID,
 		text,
 		*update.CallbackQuery.Message.ReplyMarkup,
@@ -172,7 +172,7 @@ func (b *Bot) HB_DelSite(ctx BotContext, update tgbotapi.Update) {
 		return
 	}
 
-	err := b.DB.MonitoringSiteDelete(b.ctx, ctx.user.GetChatId(), actionSite.Id)
+	err := b.DB.MonitoringSiteDelete(b.ctx, ctx.user.GetUserId(), actionSite.Id)
 	if err != nil {
 		b.errErrorChan <- err
 		return
@@ -235,7 +235,7 @@ func (b *Bot) HB_SiteUpdate(ctx BotContext, update tgbotapi.Update) {
 	ctx.user.SetAction(serializers.ACTION_SITE_UPD)
 
 	opts := infobotdb.NewInfoBotOptions(
-		infobotdb.WithUserId(ctx.user.GetChatId()),
+		infobotdb.WithUserId(ctx.user.GetUserId()),
 		infobotdb.WithId(site_id),
 	)
 	sites, _, err := b.DB.MonitoringSites(b.ctx, opts)
@@ -250,7 +250,7 @@ func (b *Bot) HB_SiteUpdate(ctx BotContext, update tgbotapi.Update) {
 
 // Обновить инфу о сайте
 func (b *Bot) HB_SiteInfoUpdate(ctx BotContext, update tgbotapi.Update) {
-	chatId := ctx.user.GetChatId()
+	chatId := ctx.user.GetUserId()
 	site := ctx.user.GetActionSite()
 
 	_, err := b.DB.MonitoringSiteUpdate(ctx, chatId, site)

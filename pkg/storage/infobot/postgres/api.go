@@ -42,8 +42,8 @@ func (d *InfoBotDb) TelegramUserGet(ctx context.Context, user_id int64) (*serial
 func (d *InfoBotDb) MonitoringSites(ctx context.Context, opt *infobotdb.OptionsInfoBot) ([]*serializers.SiteSerializer, int, error) {
 	sqlt, err := infobotdb.Template("sites", `
 		SELECT 
-			s.id, 
-			s.url, t.status_code, t.monitoring, t.duration_minutes,
+			s.id, s.url, s.working, s.status_code, s.secret_key, s.last_checked_at, 
+			t.monitoring, t.duration_minutes,
 			COUNT(*) OVER (PARTITION BY tg_user_id) AS count_user_sites
 		FROM tg_user_sites t
 		LEFT JOIN sites s ON t.site_id = s.id
@@ -72,8 +72,9 @@ func (d *InfoBotDb) MonitoringSites(ctx context.Context, opt *infobotdb.OptionsI
 		var s serializers.SiteSerializer
 		err = row.Scan(
 			&s.Id,
-			&s.Url,
-			&s.StatusCode, &s.Monitoring, &s.DurationMinutes,
+			&s.Url, &s.Working, &s.StatusCode,
+			&s.SecretKey, &s.LastCheckedAt,
+			&s.Monitoring, &s.DurationMinutes,
 			&cnt,
 		)
 		if err != nil {
@@ -86,9 +87,17 @@ func (d *InfoBotDb) MonitoringSites(ctx context.Context, opt *infobotdb.OptionsI
 }
 
 // Добавить новый сайт для мониторинга
-func (d *InfoBotDb) MonitoringSiteAdd(ctx context.Context, user_id int64, site_url string) (*serializers.SiteSerializer, error) {
+func (d *InfoBotDb) MonitoringSiteAdd(
+	ctx context.Context,
+	user_id int64,
+	site_url string,
+	working bool,
+	status_code int,
+) (*serializers.SiteSerializer, error) {
 	site := serializers.SiteSerializer{
 		Url:             site_url,
+		Working:         working,
+		StatusCode:      status_code,
 		Monitoring:      false,
 		DurationMinutes: 15,
 	}
@@ -104,11 +113,19 @@ func (d *InfoBotDb) MonitoringSiteAdd(ctx context.Context, user_id int64, site_u
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
+		site.SecretKey, err = infobotdb.GenerateSecretKey(64)
+		if err != nil {
+			return nil, err
+		}
+
 		row := tx.QueryRowContext(ctx, `
-			INSERT INTO sites (url)
-			VALUES ($1)
-			RETURNING id
-		`, site.Url)
+				INSERT INTO sites (url, working, status_code, secret_key)
+				VALUES ($1, $2, $3, $4)
+				RETURNING id
+			`,
+			site.Url, site.Working, site.StatusCode,
+			site.SecretKey,
+		)
 		if err = row.Err(); err != nil {
 			return nil, err
 		}
@@ -135,9 +152,9 @@ func (d *InfoBotDb) MonitoringSiteAdd(ctx context.Context, user_id int64, site_u
 
 	_, err = tx.Exec(`
 		INSERT INTO tg_user_sites 
-		(site_id, tg_user_id, status_code, monitoring, duration_minutes)
-		VALUES ($1, $2, $3, $4, $5)
-	`, site.Id, user_id, site.StatusCode, site.Monitoring, site.DurationMinutes)
+		(site_id, tg_user_id, monitoring, duration_minutes)
+		VALUES ($1, $2, $3, $4)
+	`, site.Id, user_id, site.Monitoring, site.DurationMinutes)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +204,7 @@ func (d *InfoBotDb) MonitoringSiteDelete(ctx context.Context, user_id int64, sit
 }
 
 // Вывести пользовательские обращения
-func (d *InfoBotDb) Feedbacks(ctx context.Context, opt *infobotdb.OptionsInfoBot) ([]*serializers.ConversionSerializer, int, error) {
+func (d *InfoBotDb) Feedbacks(ctx context.Context, opt *infobotdb.OptionsInfoBot) ([]*serializers.FeedbackSerializer, int, error) {
 	sqlt, err := infobotdb.Template("feedbacks", `
 		SELECT 
 			f.id, f.name, f.contact, f.message, f.created_at,
@@ -210,9 +227,9 @@ func (d *InfoBotDb) Feedbacks(ctx context.Context, opt *infobotdb.OptionsInfoBot
 	}
 
 	var cnt int
-	res := make([]*serializers.ConversionSerializer, 0, opt.Limit)
+	res := make([]*serializers.FeedbackSerializer, 0, opt.Limit)
 	for row.Next() {
-		var s serializers.ConversionSerializer
+		var s serializers.FeedbackSerializer
 		err = row.Scan(
 			&s.Id, &s.Name,
 			&s.Contact, &s.Message,
@@ -228,7 +245,7 @@ func (d *InfoBotDb) Feedbacks(ctx context.Context, opt *infobotdb.OptionsInfoBot
 }
 
 // Добавить пользовательское обращение
-func (d *InfoBotDb) FeedbackInsert(ctx context.Context, user *serializers.ConversionSerializer) error {
+func (d *InfoBotDb) FeedbackInsert(ctx context.Context, user *serializers.FeedbackSerializer) error {
 	sqlt := `
 		INSERT INTO feedbacks (site_id, name, contact, message, created_at)
 		VALUES (:site_id, :name, :contact, :message, :created_at)

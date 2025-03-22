@@ -14,7 +14,7 @@ import (
 func (b *Bot) KeyboardHomePage(a *serializers.User) *tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 
-	if a.GetChatId() == b.config.TG_SUPER_ADMIN {
+	if a.GetUserId() == b.config.TG_SUPER_ADMIN {
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(serializers.BTN_SITES))
 	}
 
@@ -83,7 +83,7 @@ func (b *Bot) KeyboardSites(a *serializers.User) (*tgbotapi.InlineKeyboardMarkup
 	offset := a.GetOffset()
 	opts := infobotdb.NewInfoBotOptions(
 		infobotdb.WithOffset(offset),
-		infobotdb.WithUserId(a.GetChatId()),
+		infobotdb.WithUserId(a.GetUserId()),
 	)
 
 	sites, cnt, err := b.DB.MonitoringSites(b.ctx, opts)
