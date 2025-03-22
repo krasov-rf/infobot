@@ -3,6 +3,7 @@ package infobot
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	er "github.com/krasov-rf/infobot/pkg/errors"
 	"github.com/krasov-rf/infobot/pkg/serializers"
@@ -36,9 +37,10 @@ func (b *Bot) HB_UpdateOffsetPrevious(ctx BotContext, update tgbotapi.Update) {
 // вывести главную страницу
 func (b *Bot) HB_HomePage(ctx BotContext, update tgbotapi.Update) {
 	ctx.user.SetAction(serializers.ACTION_NONE)
-	_, err := b.Send(tgbotapi.NewEditMessageReplyMarkup(
+	_, err := b.Send(tgbotapi.NewEditMessageTextAndMarkup(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
+		"Главное меню:",
 		*b.KeyboardHomePage(ctx.user),
 	))
 	if err != nil {
@@ -62,7 +64,6 @@ func (b *Bot) HB_Help(ctx BotContext, update tgbotapi.Update) {
 	text := `
 		Доступные команды:  
 		/start - Запустить бота
-		/help - Посмотреть это вспомогательное сообщение
 	`
 	chatId := ctx.user.GetChatId()
 	if chatId == b.config.TG_SUPER_ADMIN {
@@ -94,9 +95,10 @@ func (b *Bot) HB_Feedbacks(ctx BotContext, update tgbotapi.Update) {
 	if err != nil {
 		b.errErrorChan <- err
 	}
-	_, err = b.Send(tgbotapi.NewEditMessageReplyMarkup(
+	_, err = b.Send(tgbotapi.NewEditMessageTextAndMarkup(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
+		"Обращения пользователей:",
 		*keyboard,
 	))
 	if err != nil {
@@ -108,13 +110,18 @@ func (b *Bot) HB_Feedbacks(ctx BotContext, update tgbotapi.Update) {
 func (b *Bot) HB_Feedback(ctx BotContext, update tgbotapi.Update) {
 	var v int
 
-	if val := ctx.Value("myContextKey"); val != nil {
-		data, ok := val.(int)
+	if val := ctx.Value(CTX_KEY_DATA); val != nil {
+		data, ok := val.(string)
 		if !ok {
 			b.errErrorChan <- errors.New("ошибка преобразование в int")
 			return
 		}
-		v = data
+		var err error
+		v, err = strconv.Atoi(data)
+		if err != nil {
+			b.errErrorChan <- err
+			return
+		}
 	} else {
 		b.errErrorChan <- errors.New("не найдено значение в контексте")
 		return
@@ -183,9 +190,10 @@ func (b *Bot) HB_Sites(ctx BotContext, update tgbotapi.Update) {
 		b.errErrorChan <- err
 		return
 	}
-	_, err = b.Send(tgbotapi.NewEditMessageReplyMarkup(
+	_, err = b.Send(tgbotapi.NewEditMessageTextAndMarkup(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
+		"Ваши добавленные сайты:",
 		*keyboard,
 	))
 	if err != nil {
@@ -207,13 +215,18 @@ func (b *Bot) HB_SiteAdd(ctx BotContext, update tgbotapi.Update) {
 func (b *Bot) HB_SiteUpdate(ctx BotContext, update tgbotapi.Update) {
 	var site_id int
 
-	if val := ctx.Value("myContextKey"); val != nil {
-		data, ok := val.(int)
+	if val := ctx.Value(CTX_KEY_DATA); val != nil {
+		data, ok := val.(string)
 		if !ok {
 			b.errErrorChan <- errors.New("ошибка преобразование в int")
 			return
 		}
-		site_id = data
+		var err error
+		site_id, err = strconv.Atoi(data)
+		if err != nil {
+			b.errErrorChan <- err
+			return
+		}
 	} else {
 		b.errErrorChan <- errors.New("не найдено значение в контексте")
 		return
@@ -238,15 +251,18 @@ func (b *Bot) HB_SiteUpdate(ctx BotContext, update tgbotapi.Update) {
 // Обновить инфу о сайте
 func (b *Bot) HB_SiteInfoUpdate(ctx BotContext, update tgbotapi.Update) {
 	chatId := ctx.user.GetChatId()
-	_, err := b.DB.MonitoringSiteUpdate(ctx, chatId, ctx.user.GetActionSite())
+	site := ctx.user.GetActionSite()
+
+	_, err := b.DB.MonitoringSiteUpdate(ctx, chatId, site)
 	if err != nil {
 		b.errErrorChan <- err
 	}
-	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())
-	_, err = b.Send(tgbotapi.NewEditMessageReplyMarkup(
+
+	_, err = b.Send(tgbotapi.NewEditMessageTextAndMarkup(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
-		*keyboard,
+		fmt.Sprintf("Обновление информации о сайте %s:", site.Url),
+		*KeyboardSiteSettings(site),
 	))
 	if err != nil {
 		b.errErrorChan <- err
