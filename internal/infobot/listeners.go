@@ -44,7 +44,7 @@ func (b *Bot) errorListener() {
 			case <-b.ctx.Done():
 				return
 
-			case err, ok := <-b.errErrorChan:
+			case err, ok := <-b.errChan:
 				if !ok {
 					return
 				}

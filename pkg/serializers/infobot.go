@@ -78,7 +78,7 @@ type SiteForChecked struct {
 	// ссылка на сайт
 	Url string `db:"url"`
 	// работает ли сайт
-	Working bool `db:"bool"`
+	Working bool `db:"working"`
 	// старый код ответа сайта
 	StatusCode int `db:"status_code"`
 	// пользователи слушающие сайт

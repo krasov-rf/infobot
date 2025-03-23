@@ -3,6 +3,7 @@ package infobot
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 
 	er "github.com/krasov-rf/infobot/pkg/errors"
@@ -44,7 +45,7 @@ func (b *Bot) HB_HomePage(ctx *BotContext, update tgbotapi.Update) {
 		*b.KeyboardHomePage(ctx.user),
 	))
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -55,7 +56,7 @@ func (b *Bot) MSG_HomePage(ctx *BotContext, update tgbotapi.Update) {
 	msg.ReplyMarkup = b.KeyboardHomePage(ctx.user)
 	_, err := b.Send(msg)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -73,7 +74,7 @@ func (b *Bot) HB_Help(ctx *BotContext, update tgbotapi.Update) {
 	msg.ParseMode = "HTML"
 	_, err := b.Send(msg)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -84,7 +85,7 @@ func (b *Bot) HB_TelegramId(ctx *BotContext, update tgbotapi.Update) {
 	msg.ParseMode = "Markdown"
 	_, err := b.Send(msg)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -93,7 +94,7 @@ func (b *Bot) HB_Feedbacks(ctx *BotContext, update tgbotapi.Update) {
 	ctx.user.SetAction(serializers.ACTION_FEEDBACK_LIST)
 	keyboard, err := b.KeyboardFeedbacks(ctx.user)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 	_, err = b.Send(tgbotapi.NewEditMessageTextAndMarkup(
 		update.CallbackQuery.Message.Chat.ID,
@@ -102,7 +103,7 @@ func (b *Bot) HB_Feedbacks(ctx *BotContext, update tgbotapi.Update) {
 		*keyboard,
 	))
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -113,17 +114,17 @@ func (b *Bot) HB_Feedback(ctx *BotContext, update tgbotapi.Update) {
 	if val := ctx.Value(CTX_KEY_DATA); val != nil {
 		data, ok := val.(string)
 		if !ok {
-			b.errErrorChan <- errors.New("ошибка преобразование в int")
+			b.errChan <- errors.New("ошибка преобразование в int")
 			return
 		}
 		var err error
 		v, err = strconv.Atoi(data)
 		if err != nil {
-			b.errErrorChan <- err
+			b.errChan <- err
 			return
 		}
 	} else {
-		b.errErrorChan <- errors.New("не найдено значение в контексте")
+		b.errChan <- errors.New("не найдено значение в контексте")
 		return
 	}
 
@@ -132,21 +133,21 @@ func (b *Bot) HB_Feedback(ctx *BotContext, update tgbotapi.Update) {
 	)
 	feedbacks, _, err := b.DB.Feedbacks(ctx, opt)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 		return
 	}
 	if len(feedbacks) == 0 {
-		b.errErrorChan <- er.ErrorNotExist
+		b.errChan <- er.ErrorNotExist
 		return
 	}
 
 	feedback := feedbacks[0]
-	text := fmt.Sprintf(
-		"Имя: %s\nКонтактная информация: %s\nСообщение: %s\nДата обращения: %s",
-		feedback.Name,
-		feedback.Contact,
-		feedback.Message,
-		feedback.CreatedAt.Format("2006-01-02 15:04:05"),
+	text := fmt.Sprintf("Обращение\n\nИмя: `%s`\nКонтактная информация: `%s`\nСообщение: `%s`\nПрилетело со страницы: `%s`\nДата обращения: *%s*",
+		infobotdb.EscapeMarkdownV2(feedback.Name),
+		infobotdb.EscapeMarkdownV2(feedback.Contact),
+		infobotdb.EscapeMarkdownV2(feedback.Message),
+		infobotdb.EscapeMarkdownV2(feedback.FeedbackUrl),
+		infobotdb.EscapeMarkdownV2(feedback.CreatedAt.Format("2006-01-02 15:04:05")),
 	)
 
 	if update.CallbackQuery.Message.Text == text {
@@ -159,8 +160,9 @@ func (b *Bot) HB_Feedback(ctx *BotContext, update tgbotapi.Update) {
 		text,
 		*update.CallbackQuery.Message.ReplyMarkup,
 	)
+	newMsg.ParseMode = "MarkdownV2"
 	if _, err := b.Send(newMsg); err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -174,7 +176,7 @@ func (b *Bot) HB_DelSite(ctx *BotContext, update tgbotapi.Update) {
 
 	err := b.DB.MonitoringSiteDelete(b.ctx, ctx.user.GetUserId(), actionSite.Id)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 		return
 	}
 	ctx.user.SetActionSite(nil)
@@ -183,11 +185,13 @@ func (b *Bot) HB_DelSite(ctx *BotContext, update tgbotapi.Update) {
 
 // вывести сайты
 func (b *Bot) HB_Sites(ctx *BotContext, update tgbotapi.Update) {
-	ctx.user.SetAction(serializers.ACTION_SITE_LIST)
-	ctx.user.SetOffset(0)
+	if ctx.user.GetAction() != serializers.ACTION_SITE_LIST {
+		ctx.user.SetOffset(0)
+		ctx.user.SetAction(serializers.ACTION_SITE_LIST)
+	}
 	keyboard, err := b.KeyboardSites(ctx.user)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 		return
 	}
 	_, err = b.Send(tgbotapi.NewEditMessageTextAndMarkup(
@@ -197,7 +201,7 @@ func (b *Bot) HB_Sites(ctx *BotContext, update tgbotapi.Update) {
 		*keyboard,
 	))
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -209,16 +213,24 @@ func (b *Bot) HB_SiteAdd(ctx *BotContext, update tgbotapi.Update) {
 	msg := tgbotapi.NewMessage(ctx.user.GetUserId(), "Введите URL сайта для добавления:")
 	_, err := b.Send(msg)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
 // войти в процесс добавления инфы о сайте
 func (b *Bot) HB_SiteAddUrl(ctx *BotContext, update tgbotapi.Update) {
 	user_id := ctx.user.GetUserId()
-	site, err := b.DB.MonitoringSiteAdd(ctx, user_id, update.Message.Text, true, 200)
+	site_url := update.Message.Text
+
+	_, err := url.ParseRequestURI(site_url)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
+		return
+	}
+
+	site, err := b.DB.MonitoringSiteAdd(ctx, user_id, site_url, true, 200)
+	if err != nil {
+		b.errChan <- err
 		return
 	}
 	ctx.user.SetActionSite(site)
@@ -228,7 +240,7 @@ func (b *Bot) HB_SiteAddUrl(ctx *BotContext, update tgbotapi.Update) {
 	msg.ReplyMarkup = KeyboardSiteSettings(site)
 	_, err = b.Send(msg)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -239,17 +251,17 @@ func (b *Bot) HB_SiteUpdate(ctx *BotContext, update tgbotapi.Update) {
 	if val := ctx.Value(CTX_KEY_DATA); val != nil {
 		data, ok := val.(string)
 		if !ok {
-			b.errErrorChan <- errors.New("ошибка преобразование в int")
+			b.errChan <- errors.New("ошибка преобразование в int")
 			return
 		}
 		var err error
 		site_id, err = strconv.Atoi(data)
 		if err != nil {
-			b.errErrorChan <- err
+			b.errChan <- err
 			return
 		}
 	} else {
-		b.errErrorChan <- errors.New("не найдено значение в контексте")
+		b.errChan <- errors.New("не найдено значение в контексте")
 		return
 	}
 
@@ -261,7 +273,7 @@ func (b *Bot) HB_SiteUpdate(ctx *BotContext, update tgbotapi.Update) {
 	)
 	sites, _, err := b.DB.MonitoringSites(ctx, opts)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 		return
 	}
 
@@ -276,7 +288,7 @@ func (b *Bot) HB_SiteInfoUpdate(ctx *BotContext, update tgbotapi.Update) {
 
 	_, err := b.DB.MonitoringSiteUpdate(ctx.Context, chatId, site)
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 
 	_, err = b.Send(tgbotapi.NewEditMessageTextAndMarkup(
@@ -286,7 +298,7 @@ func (b *Bot) HB_SiteInfoUpdate(ctx *BotContext, update tgbotapi.Update) {
 		*KeyboardSiteSettings(site),
 	))
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -294,14 +306,21 @@ func (b *Bot) HB_SiteInfoUpdate(ctx *BotContext, update tgbotapi.Update) {
 func (b *Bot) HB_UpdateSiteMonitorYes(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	actionSite.Monitoring = true
+
+	_, err := b.DB.MonitoringSiteUpdate(ctx, ctx.user.GetUserId(), actionSite)
+	if err != nil {
+		b.errChan <- err
+		return
+	}
+
 	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())
-	_, err := b.Send(tgbotapi.NewEditMessageReplyMarkup(
+	_, err = b.Send(tgbotapi.NewEditMessageReplyMarkup(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
 		*keyboard,
 	))
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -309,14 +328,21 @@ func (b *Bot) HB_UpdateSiteMonitorYes(ctx *BotContext, update tgbotapi.Update) {
 func (b *Bot) HB_UpdateSiteMonitorNo(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	actionSite.Monitoring = false
+
+	_, err := b.DB.MonitoringSiteUpdate(ctx, ctx.user.GetUserId(), actionSite)
+	if err != nil {
+		b.errChan <- err
+		return
+	}
+
 	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())
-	_, err := b.Send(tgbotapi.NewEditMessageReplyMarkup(
+	_, err = b.Send(tgbotapi.NewEditMessageReplyMarkup(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
 		*keyboard,
 	))
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -324,14 +350,21 @@ func (b *Bot) HB_UpdateSiteMonitorNo(ctx *BotContext, update tgbotapi.Update) {
 func (b *Bot) HB_UpdateSiteMonitorDuration10(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	actionSite.DurationMinutes = 10
+
+	_, err := b.DB.MonitoringSiteUpdate(ctx, ctx.user.GetUserId(), actionSite)
+	if err != nil {
+		b.errChan <- err
+		return
+	}
+
 	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())
-	_, err := b.Send(tgbotapi.NewEditMessageReplyMarkup(
+	_, err = b.Send(tgbotapi.NewEditMessageReplyMarkup(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
 		*keyboard,
 	))
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -339,14 +372,21 @@ func (b *Bot) HB_UpdateSiteMonitorDuration10(ctx *BotContext, update tgbotapi.Up
 func (b *Bot) HB_UpdateSiteMonitorDuration15(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	actionSite.DurationMinutes = 15
+
+	_, err := b.DB.MonitoringSiteUpdate(ctx, ctx.user.GetUserId(), actionSite)
+	if err != nil {
+		b.errChan <- err
+		return
+	}
+
 	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())
-	_, err := b.Send(tgbotapi.NewEditMessageReplyMarkup(
+	_, err = b.Send(tgbotapi.NewEditMessageReplyMarkup(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
 		*keyboard,
 	))
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }
 
@@ -354,13 +394,20 @@ func (b *Bot) HB_UpdateSiteMonitorDuration15(ctx *BotContext, update tgbotapi.Up
 func (b *Bot) HB_UpdateSiteMonitorDuration20(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	actionSite.DurationMinutes = 20
+
+	_, err := b.DB.MonitoringSiteUpdate(ctx, ctx.user.GetUserId(), actionSite)
+	if err != nil {
+		b.errChan <- err
+		return
+	}
+
 	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())
-	_, err := b.Send(tgbotapi.NewEditMessageReplyMarkup(
+	_, err = b.Send(tgbotapi.NewEditMessageReplyMarkup(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
 		*keyboard,
 	))
 	if err != nil {
-		b.errErrorChan <- err
+		b.errChan <- err
 	}
 }

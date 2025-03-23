@@ -3,6 +3,8 @@ package infobotgrpc
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/krasov-rf/infobot/internal/infobot"
@@ -18,12 +20,12 @@ func (s *Server) Feedback(ctx context.Context, in *infobotpb.FeedbackRequest) (*
 		site, ok = val.(serializers.SiteSerializer)
 		if !ok {
 			err := errors.New("ошибка преобразование в serializers.SiteSerializer")
-			s.errErrorChan <- err
+			s.errChan <- err
 			return nil, err
 		}
 	} else {
 		err := errors.New("не найдено значение сайта в контексте")
-		s.errErrorChan <- err
+		s.errChan <- err
 		return nil, err
 	}
 
@@ -35,15 +37,40 @@ func (s *Server) Feedback(ctx context.Context, in *infobotpb.FeedbackRequest) (*
 		FeedbackUrl: in.FeedbackUrl,
 	})
 	if err != nil {
-		s.errErrorChan <- err
+		s.errChan <- err
 		return nil, err
 	}
 
-	msg := tgbotapi.NewMessage(s.config.TG_SUPER_ADMIN, "Bot started")
-	_, err = s.BotAPI.Send(msg)
+	created_at := time.Now()
+
+	d, err := s.DB.RelatedUsersBySites(ctx, int64(site.Id))
 	if err != nil {
-		s.errErrorChan <- err
+		s.errChan <- err
 		return nil, err
 	}
+
+	for _, user := range d[site.Id] {
+		_, err = s.BotAPI.Send(tgbotapi.NewMessage(
+			int64(user),
+			fmt.Sprintf(
+				`Новое обращение\n\n
+				Имя: %s\n
+				Контактная информация: %s\n
+				Сообщение: %s\n
+				Прилетело со страницы: %s\n
+				Дата обращения: %s`,
+				in.Name,
+				in.Contact,
+				in.Message,
+				in.FeedbackUrl,
+				created_at,
+			),
+		))
+		if err != nil {
+			s.errChan <- err
+			return nil, err
+		}
+	}
+
 	return &emptypb.Empty{}, nil
 }

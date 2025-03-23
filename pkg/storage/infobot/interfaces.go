@@ -31,6 +31,8 @@ type IInfoBotDB interface {
 	MonitoringSiteAdd(ctx context.Context, user_id int64, site_url string, working bool, status_code int) (*serializers.SiteSerializer, error)
 	// обновить сайт
 	MonitoringSiteUpdate(ctx context.Context, user_id int64, site *serializers.SiteSerializer) (*serializers.SiteSerializer, error)
+	// обновить статус сайта
+	MonitoringSiteStatusUpdate(ctx context.Context, site_id, status_code int) error
 	// сайты у которых подошло время для проверки
 	MonitoringSitesForCheck(ctx context.Context) ([]*serializers.SiteForChecked, error)
 }

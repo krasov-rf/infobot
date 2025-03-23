@@ -56,7 +56,7 @@ func (d *InfoBotDb) MonitoringSitesForCheck(ctx context.Context) ([]*serializers
 	if err != nil {
 		return nil, err
 	}
-	for !rows.Next() {
+	for rows.Next() {
 		var s serializers.SiteForChecked
 		err = rows.StructScan(&s)
 		if err != nil {
@@ -66,6 +66,28 @@ func (d *InfoBotDb) MonitoringSitesForCheck(ctx context.Context) ([]*serializers
 	}
 
 	return res, nil
+}
+
+// обновить статус сайта
+func (d *InfoBotDb) MonitoringSiteStatusUpdate(ctx context.Context, site_id, status_code int) error {
+	sqlt := `
+		UPDATE sites
+		SET status_code = :status_code, 
+			working = :working
+		WHERE id = :id
+	`
+	_, err := d.DB.NamedExecContext(
+		ctx, sqlt,
+		map[string]any{
+			"id":          site_id,
+			"working":     status_code == 200,
+			"status_code": status_code,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Получить телеграм пользователей которые добавили себе сайты и включили функцию мониторинга

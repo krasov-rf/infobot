@@ -17,7 +17,7 @@ func (b *Bot) RegisterUserMiddleware(next handlerFunc) handlerFunc {
 		_, err := b.DB.TelegramUserGet(b.ctx, chat.ID)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
-				b.errErrorChan <- err
+				b.errChan <- err
 				return
 			}
 
@@ -28,7 +28,7 @@ func (b *Bot) RegisterUserMiddleware(next handlerFunc) handlerFunc {
 				LastName:  chat.LastName,
 			})
 			if err != nil {
-				b.errErrorChan <- err
+				b.errChan <- err
 				return
 			}
 		}

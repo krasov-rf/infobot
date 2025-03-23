@@ -6,10 +6,11 @@ import (
 	"encoding/base64"
 	"reflect"
 	"regexp"
+	"strings"
 	"text/template"
 )
 
-var QUERY_LIMIT = 1
+var QUERY_LIMIT = 5
 
 func GenerateSecretKey(length int) (string, error) {
 	key := make([]byte, length)
@@ -18,6 +19,36 @@ func GenerateSecretKey(length int) (string, error) {
 		return "", err
 	}
 	return base64.StdEncoding.EncodeToString(key), nil
+}
+
+func EscapeMarkdownV2(text string) string {
+	// Экранирование специальных символов для MarkdownV2
+	replacements := map[string]string{
+		"_": "\\_",
+		"*": "\\*",
+		"[": "\\[",
+		"]": "\\]",
+		"(": "\\(",
+		")": "\\)",
+		"~": "\\~",
+		"`": "\\`",
+		">": "\\>",
+		"#": "\\#",
+		"+": "\\+",
+		"-": "\\-",
+		"=": "\\=",
+		"|": "\\|",
+		"{": "\\{",
+		"}": "\\}",
+		".": "\\.",
+		"!": "\\!",
+	}
+
+	for old, new := range replacements {
+		text = strings.ReplaceAll(text, old, new)
+	}
+
+	return text
 }
 
 // генерация скрипта

@@ -27,8 +27,8 @@ type Bot struct {
 
 	DB infobotdb.IInfoBotDB
 
-	updateChan   chan tgbotapi.Update
-	errErrorChan chan error
+	updateChan chan tgbotapi.Update
+	errChan    chan error
 }
 
 type BotContext struct {
@@ -79,8 +79,8 @@ func (b *Bot) Start() {
 	b.cron.Start()
 	defer b.cron.Stop()
 
-	b.errErrorChan = make(chan error, 10)
-	defer close(b.errErrorChan)
+	b.errChan = make(chan error, 10)
+	defer close(b.errChan)
 	go b.errorListener()
 
 	b.updateChan = make(chan tgbotapi.Update, 10)
