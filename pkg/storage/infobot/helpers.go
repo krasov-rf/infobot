@@ -3,6 +3,7 @@ package infobotdb
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"reflect"
 	"regexp"
 	"text/template"
@@ -16,7 +17,7 @@ func GenerateSecretKey(length int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(key), nil
+	return base64.StdEncoding.EncodeToString(key), nil
 }
 
 // генерация скрипта

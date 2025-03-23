@@ -5,12 +5,15 @@ import (
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
+	"github.com/krasov-rf/infobot/pkg/serializers"
 )
 
 type UpdateType int
 
 const (
 	UPDATE_MESSAGE UpdateType = iota
+	UPDATE_RAW_MESSAGE
 	UPDATE_CALLBACK
 )
 
@@ -20,17 +23,25 @@ type Router struct {
 }
 
 type route struct {
-	path    string
-	handler handlerFunc
-	params  []string
+	path       string
+	actionType serializers.ACTION_TYPE
+	handler    handlerFunc
+	params     []string
 }
 
-type handlerFunc func(BotContext, tgbotapi.Update)
+type handlerFunc func(*BotContext, tgbotapi.Update)
 
 func NewRouter() *Router {
 	return &Router{
 		routes: make(map[UpdateType][]route),
 	}
+}
+
+func (r *Router) RouteRawMessage(action serializers.ACTION_TYPE, handler handlerFunc) {
+	r.routes[UPDATE_RAW_MESSAGE] = append(r.routes[UPDATE_RAW_MESSAGE], route{
+		actionType: action,
+		handler:    handler,
+	})
 }
 
 func (r *Router) RouteMessage(path string, handler handlerFunc) {
@@ -73,6 +84,7 @@ func (r *Router) handleUpdate(update tgbotapi.Update) {
 	)
 
 	ctx = context.Background()
+	botCtx.Context = ctx
 
 	// обработчики нажатий на кнопку
 
@@ -81,13 +93,12 @@ func (r *Router) handleUpdate(update tgbotapi.Update) {
 		route = data[0]
 		if len(data) == 2 {
 			d := data[1]
-			ctx = context.WithValue(ctx, CTX_KEY_DATA, d)
+			botCtx.Context = context.WithValue(ctx, CTX_KEY_DATA, d)
 		}
-		botCtx.Context = ctx
 
 		for _, ex_route := range r.routes[UPDATE_CALLBACK] {
 			if ex_route.path == route {
-				r.applyMiddleware(ex_route.handler)(botCtx, update)
+				r.applyMiddleware(ex_route.handler)(&botCtx, update)
 				return
 			}
 		}
@@ -108,8 +119,16 @@ func (r *Router) handleUpdate(update tgbotapi.Update) {
 
 	for _, ex_route := range r.routes[UPDATE_MESSAGE] {
 		if ex_route.path == route {
-			f := r.applyMiddleware(ex_route.handler)
-			f(botCtx, update)
+			r.applyMiddleware(ex_route.handler)(&botCtx, update)
+			return
+		}
+	}
+
+	r.applyMiddleware(func(*BotContext, tgbotapi.Update) {})(&botCtx, update)
+	action := botCtx.user.GetAction()
+	for _, ex_route := range r.routes[UPDATE_RAW_MESSAGE] {
+		if ex_route.actionType == action {
+			ex_route.handler(&botCtx, update)
 			return
 		}
 	}

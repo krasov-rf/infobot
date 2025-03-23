@@ -13,7 +13,7 @@ import (
 )
 
 // сместить позицию листинга
-func (b *Bot) updateOffset(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) updateOffset(ctx *BotContext, update tgbotapi.Update) {
 	switch ctx.user.GetAction() {
 	case serializers.ACTION_SITE_LIST:
 		b.HB_Sites(ctx, update)
@@ -23,19 +23,19 @@ func (b *Bot) updateOffset(ctx BotContext, update tgbotapi.Update) {
 }
 
 // сместить позицию листинга далее
-func (b *Bot) HB_UpdateOffsetNext(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_UpdateOffsetNext(ctx *BotContext, update tgbotapi.Update) {
 	ctx.user.SetOffset(ctx.user.GetOffset() + infobotdb.QUERY_LIMIT)
 	b.updateOffset(ctx, update)
 }
 
 // сместить позицию листинга назад
-func (b *Bot) HB_UpdateOffsetPrevious(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_UpdateOffsetPrevious(ctx *BotContext, update tgbotapi.Update) {
 	ctx.user.SetOffset(ctx.user.GetOffset() - infobotdb.QUERY_LIMIT)
 	b.updateOffset(ctx, update)
 }
 
 // вывести главную страницу
-func (b *Bot) HB_HomePage(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_HomePage(ctx *BotContext, update tgbotapi.Update) {
 	ctx.user.SetAction(serializers.ACTION_NONE)
 	_, err := b.Send(tgbotapi.NewEditMessageTextAndMarkup(
 		update.CallbackQuery.Message.Chat.ID,
@@ -49,7 +49,7 @@ func (b *Bot) HB_HomePage(ctx BotContext, update tgbotapi.Update) {
 }
 
 // вывести главную страницу
-func (b *Bot) MSG_HomePage(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) MSG_HomePage(ctx *BotContext, update tgbotapi.Update) {
 	msg := tgbotapi.NewMessage(ctx.user.GetUserId(), "Добро пожаловать!")
 	ctx.user.SetAction(serializers.ACTION_NONE)
 	msg.ReplyMarkup = b.KeyboardHomePage(ctx.user)
@@ -60,7 +60,7 @@ func (b *Bot) MSG_HomePage(ctx BotContext, update tgbotapi.Update) {
 }
 
 // вывести хелпу
-func (b *Bot) HB_Help(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_Help(ctx *BotContext, update tgbotapi.Update) {
 	text := `
 		Доступные команды:  
 		/start - Запустить бота
@@ -78,7 +78,7 @@ func (b *Bot) HB_Help(ctx BotContext, update tgbotapi.Update) {
 }
 
 // вывести телеграм id пользователя
-func (b *Bot) HB_TelegramId(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_TelegramId(ctx *BotContext, update tgbotapi.Update) {
 	chatId := ctx.user.GetUserId()
 	msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("Ваш телеграм ID: `%d`", chatId))
 	msg.ParseMode = "Markdown"
@@ -89,7 +89,7 @@ func (b *Bot) HB_TelegramId(ctx BotContext, update tgbotapi.Update) {
 }
 
 // вывести обращения пользователей
-func (b *Bot) HB_Feedbacks(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_Feedbacks(ctx *BotContext, update tgbotapi.Update) {
 	ctx.user.SetAction(serializers.ACTION_FEEDBACK_LIST)
 	keyboard, err := b.KeyboardFeedbacks(ctx.user)
 	if err != nil {
@@ -107,7 +107,7 @@ func (b *Bot) HB_Feedbacks(ctx BotContext, update tgbotapi.Update) {
 }
 
 // вывести обращение пользователя
-func (b *Bot) HB_Feedback(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_Feedback(ctx *BotContext, update tgbotapi.Update) {
 	var v int
 
 	if val := ctx.Value(CTX_KEY_DATA); val != nil {
@@ -165,7 +165,7 @@ func (b *Bot) HB_Feedback(ctx BotContext, update tgbotapi.Update) {
 }
 
 // удалить сайт
-func (b *Bot) HB_DelSite(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_DelSite(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	if actionSite == nil {
 		b.HB_Sites(ctx, update)
@@ -182,7 +182,7 @@ func (b *Bot) HB_DelSite(ctx BotContext, update tgbotapi.Update) {
 }
 
 // вывести сайты
-func (b *Bot) HB_Sites(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_Sites(ctx *BotContext, update tgbotapi.Update) {
 	ctx.user.SetAction(serializers.ACTION_SITE_LIST)
 	ctx.user.SetOffset(0)
 	keyboard, err := b.KeyboardSites(ctx.user)
@@ -202,17 +202,38 @@ func (b *Bot) HB_Sites(ctx BotContext, update tgbotapi.Update) {
 }
 
 // войти в процесс добавления инфы о сайте
-func (b *Bot) HB_SiteAdd(ctx BotContext, update tgbotapi.Update) {
-	ctx.user.SetActionSite(nil)
-	msg := b.AddSiteMiddleware(ctx.user, func(user *serializers.User) {})
+func (b *Bot) HB_SiteAdd(ctx *BotContext, update tgbotapi.Update) {
+	ctx.user.SetAction(serializers.ACTION_SITE_ADD_URL)
+	ctx.user.SetActionSite(&serializers.SiteSerializer{})
+
+	msg := tgbotapi.NewMessage(ctx.user.GetUserId(), "Введите URL сайта для добавления:")
 	_, err := b.Send(msg)
 	if err != nil {
 		b.errErrorChan <- err
 	}
 }
 
+// войти в процесс добавления инфы о сайте
+func (b *Bot) HB_SiteAddUrl(ctx *BotContext, update tgbotapi.Update) {
+	user_id := ctx.user.GetUserId()
+	site, err := b.DB.MonitoringSiteAdd(ctx, user_id, update.Message.Text, true, 200)
+	if err != nil {
+		b.errErrorChan <- err
+		return
+	}
+	ctx.user.SetActionSite(site)
+	ctx.user.SetAction(serializers.ACTION_SITE_UPD)
+
+	msg := tgbotapi.NewMessage(user_id, fmt.Sprintf("Обновление информации о сайте %s:", site.Url))
+	msg.ReplyMarkup = KeyboardSiteSettings(site)
+	_, err = b.Send(msg)
+	if err != nil {
+		b.errErrorChan <- err
+	}
+}
+
 // войти в процесс обновления инфы о сайте
-func (b *Bot) HB_SiteUpdate(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_SiteUpdate(ctx *BotContext, update tgbotapi.Update) {
 	var site_id int
 
 	if val := ctx.Value(CTX_KEY_DATA); val != nil {
@@ -238,7 +259,7 @@ func (b *Bot) HB_SiteUpdate(ctx BotContext, update tgbotapi.Update) {
 		infobotdb.WithUserId(ctx.user.GetUserId()),
 		infobotdb.WithId(site_id),
 	)
-	sites, _, err := b.DB.MonitoringSites(b.ctx, opts)
+	sites, _, err := b.DB.MonitoringSites(ctx, opts)
 	if err != nil {
 		b.errErrorChan <- err
 		return
@@ -249,11 +270,11 @@ func (b *Bot) HB_SiteUpdate(ctx BotContext, update tgbotapi.Update) {
 }
 
 // Обновить инфу о сайте
-func (b *Bot) HB_SiteInfoUpdate(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_SiteInfoUpdate(ctx *BotContext, update tgbotapi.Update) {
 	chatId := ctx.user.GetUserId()
 	site := ctx.user.GetActionSite()
 
-	_, err := b.DB.MonitoringSiteUpdate(ctx, chatId, site)
+	_, err := b.DB.MonitoringSiteUpdate(ctx.Context, chatId, site)
 	if err != nil {
 		b.errErrorChan <- err
 	}
@@ -270,7 +291,7 @@ func (b *Bot) HB_SiteInfoUpdate(ctx BotContext, update tgbotapi.Update) {
 }
 
 // Обновление сайта, кнопка "Мониторить"
-func (b *Bot) HB_UpdateSiteMonitorYes(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_UpdateSiteMonitorYes(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	actionSite.Monitoring = true
 	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())
@@ -285,7 +306,7 @@ func (b *Bot) HB_UpdateSiteMonitorYes(ctx BotContext, update tgbotapi.Update) {
 }
 
 // Обновление сайта, кнопка "Не мониторить"
-func (b *Bot) HB_UpdateSiteMonitorNo(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_UpdateSiteMonitorNo(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	actionSite.Monitoring = false
 	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())
@@ -300,7 +321,7 @@ func (b *Bot) HB_UpdateSiteMonitorNo(ctx BotContext, update tgbotapi.Update) {
 }
 
 // Обновление сайта, кнопка "Мониторить каждые 10 минут"
-func (b *Bot) HB_UpdateSiteMonitorDuration10(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_UpdateSiteMonitorDuration10(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	actionSite.DurationMinutes = 10
 	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())
@@ -315,7 +336,7 @@ func (b *Bot) HB_UpdateSiteMonitorDuration10(ctx BotContext, update tgbotapi.Upd
 }
 
 // Обновление сайта, кнопка "Мониторить каждые 15 минут"
-func (b *Bot) HB_UpdateSiteMonitorDuration15(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_UpdateSiteMonitorDuration15(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	actionSite.DurationMinutes = 15
 	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())
@@ -330,7 +351,7 @@ func (b *Bot) HB_UpdateSiteMonitorDuration15(ctx BotContext, update tgbotapi.Upd
 }
 
 // Обновление сайта, кнопка "Мониторить каждые 20 минут"
-func (b *Bot) HB_UpdateSiteMonitorDuration20(ctx BotContext, update tgbotapi.Update) {
+func (b *Bot) HB_UpdateSiteMonitorDuration20(ctx *BotContext, update tgbotapi.Update) {
 	actionSite := ctx.user.GetActionSite()
 	actionSite.DurationMinutes = 20
 	keyboard := KeyboardSiteSettings(ctx.user.GetActionSite())

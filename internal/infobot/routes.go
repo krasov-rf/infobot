@@ -26,4 +26,6 @@ func (b *Bot) InitializeRoutes() {
 	b.RouteCallback(serializers.DATA_BTN_HELP, b.HB_Help)
 
 	b.RouteMessage("start", b.MSG_HomePage)
+
+	b.RouteRawMessage(serializers.ACTION_SITE_ADD_URL, b.HB_SiteAddUrl)
 }

@@ -9,22 +9,9 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (b *Bot) AddSiteMiddleware(user *serializers.User, f func(user *serializers.User)) *tgbotapi.MessageConfig {
-	if user.GetActionSite() != nil {
-		user.SetAction(serializers.ACTION_SITE_UPD)
-		f(user)
-		return nil
-	}
-	user.SetAction(serializers.ACTION_SITE_UPD_URL)
-	user.SetActionSite(&serializers.SiteSerializer{})
-
-	msg := tgbotapi.NewMessage(user.GetUserId(), "Введите URL сайта для добавления:")
-	return &msg
-}
-
 // добавление пользователя в базу
 func (b *Bot) RegisterUserMiddleware(next handlerFunc) handlerFunc {
-	return func(ctx BotContext, update tgbotapi.Update) {
+	return func(ctx *BotContext, update tgbotapi.Update) {
 		chat := update.FromChat()
 
 		_, err := b.DB.TelegramUserGet(b.ctx, chat.ID)
