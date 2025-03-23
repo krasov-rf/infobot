@@ -2,12 +2,11 @@ package infobotgrpc
 
 import (
 	"context"
-	"encoding/base64"
 	"log"
 	"net"
-	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/krasov-rf/infobot/internal/infobot"
 	settings "github.com/krasov-rf/infobot/pkg/settings/infobot"
 	infobotdb "github.com/krasov-rf/infobot/pkg/storage/infobot"
 	infobotdb_pg "github.com/krasov-rf/infobot/pkg/storage/infobot/postgres"
@@ -48,7 +47,7 @@ func New(c *settings.Config) (*Server, error) {
 func (s *Server) Run() {
 	opts := []grpc.ServerOption{}
 
-	grpc.UnaryInterceptor(ensureValidBasicCredentials)
+	grpc.UnaryInterceptor(s.ensureValidBasicCredentials)
 	grpc_server := grpc.NewServer(opts...)
 	infobotpb.RegisterInfoBotServiceServer(grpc_server, s)
 
@@ -62,7 +61,7 @@ func (s *Server) Run() {
 	}
 }
 
-func ensureValidBasicCredentials(
+func (s *Server) ensureValidBasicCredentials(
 	ctx context.Context, req any,
 	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 ) (any, error) {
@@ -70,17 +69,31 @@ func ensureValidBasicCredentials(
 	if !ok {
 		return nil, status.Errorf(codes.InvalidArgument, "отсутствует метадата")
 	}
-	if !valid(md["authorization"]) {
-		return nil, status.Errorf(codes.Unauthenticated, "авторизация не пройдена")
+
+	notAuthorized := status.Errorf(codes.Unauthenticated, "авторизация не пройдена")
+
+	auth := md["authorization"]
+	if len(auth) != 2 {
+		return nil, notAuthorized
 	}
+
+	sites, _, err := s.DB.MonitoringSites(ctx, infobotdb.NewInfoBotOptions(
+		infobotdb.WithDomain(auth[0]),
+	))
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "авторизация не пройдена, ошибка: %v", err)
+	}
+	if len(sites) == 0 {
+		return nil, notAuthorized
+	}
+
+	site := sites[0]
+
+	if site.SecretKey != auth[1] {
+		return nil, notAuthorized
+	}
+
+	ctx = context.WithValue(ctx, infobot.CTX_KEY_SITE, *site)
 
 	return handler(ctx, req)
-}
-
-func valid(authorization []string) bool {
-	if len(authorization) < 1 {
-		return false
-	}
-	token := strings.TrimPrefix(authorization[0], "Basic ")
-	return token == base64.StdEncoding.EncodeToString([]byte("admin:admin"))
 }

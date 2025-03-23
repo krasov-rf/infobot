@@ -1,9 +1,10 @@
 package infobotdb
 
 type OptionsInfoBot struct {
-	Id     int   `db:"id"`
-	UserId int64 `db:"user_id"`
-	SiteId int   `db:"site_id"`
+	Id     int    `db:"id"`
+	UserId int64  `db:"user_id"`
+	SiteId int    `db:"site_id"`
+	Domain string `db:"domain"`
 
 	Limit  int `db:"limit"`
 	Offset int `db:"offset"`
@@ -22,6 +23,11 @@ func WithUserId(user_id int64) InfoBotOptionFunc {
 func WithSiteId(site_id int) InfoBotOptionFunc {
 	return func(cs *OptionsInfoBot) {
 		cs.SiteId = site_id
+	}
+}
+func WithDomain(domain string) InfoBotOptionFunc {
+	return func(cs *OptionsInfoBot) {
+		cs.Domain = domain
 	}
 }
 func WithOffset(offset int) InfoBotOptionFunc {

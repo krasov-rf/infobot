@@ -49,6 +49,8 @@ type FeedbackSerializer struct {
 	Contact string `db:"contact"`
 	// Дополнительное сообщение которое он написал
 	Message string `db:"message"`
+	// Страница с которой плител фидбек
+	FeedbackUrl string `db:"feedback_url"`
 	// Дата создания обращения
 	CreatedAt time.Time `db:"created_at"`
 }

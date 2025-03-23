@@ -34,6 +34,7 @@ type BotContextKeys int
 
 const (
 	CTX_KEY_DATA BotContextKeys = iota
+	CTX_KEY_SITE
 )
 
 var users = serializers.NewUsers()

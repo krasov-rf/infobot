@@ -19,7 +19,7 @@ type IInfoBotDB interface {
 	// Вывести пользовательские обращения
 	Feedbacks(ctx context.Context, opt *OptionsInfoBot) ([]*serializers.FeedbackSerializer, int, error)
 	// Добавить пользовательское обращение
-	FeedbackInsert(ctx context.Context, user *serializers.FeedbackSerializer) error
+	FeedbackInsert(ctx context.Context, feedback *serializers.FeedbackSerializer) error
 
 	// вывести сайты в мониторинге
 	MonitoringSites(ctx context.Context, opt *OptionsInfoBot) ([]*serializers.SiteSerializer, int, error)

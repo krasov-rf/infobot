@@ -49,6 +49,7 @@ func (d *InfoBotDb) MonitoringSites(ctx context.Context, opt *infobotdb.OptionsI
 		LEFT JOIN sites s ON t.site_id = s.id
 		WHERE t.tg_user_id = :user_id
 			{{ if .Id }} AND s.id = :id {{ end }}
+			{{ if .Domain }} AND s.url = :domain {{ end }}
 
 		{{ if .Limit }}OFFSET :offset LIMIT :limit {{ end }}
 	`, opt)
