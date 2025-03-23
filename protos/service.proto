@@ -2,22 +2,20 @@ syntax = "proto3";
 
 package protoinfobot;
 
-option go_package = "./pkg/grpc";
+option go_package = "./pkg/grpc/infobotpb";
 
 import "google/protobuf/empty.proto";
 
 // Вывод роута
 message FeedbackRequest {
-        // сайт с которого прилетела заявка
-        string site = 1;
         // имя пользователя
-        string name = 2;
+        string name = 1;
         // контатная информация
-        string contact = 3;
+        string contact = 2;
         // дополнительная информация от пользователя
-        string message = 4;
+        string message = 3;
         // страница с которой прелетел запрос
-        string feedback_url = 5;
+        string feedback_url = 4;
 }
 
 // сервис информационного бота тг 

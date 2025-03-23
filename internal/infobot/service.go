@@ -76,7 +76,7 @@ func (b *Bot) Start() {
 	defer close(b.updateChan)
 
 	go b.errorListener()
-	go b.cupdateListener()
+	go b.updateListener()
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60

@@ -42,7 +42,7 @@ func (r *Router) RouteCallback(path string, handler handlerFunc) {
 }
 
 func (r *Router) addUpdate(method UpdateType, path string, handler handlerFunc) {
-	parts := strings.Split(path, "/")
+	parts := strings.Split(path, "|")
 	var params []string
 	for _, part := range parts {
 		if strings.HasPrefix(part, ":") {

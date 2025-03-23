@@ -9,7 +9,7 @@ import (
 )
 
 // общий слушатель сообщений
-func (b *Bot) cupdateListener() {
+func (b *Bot) updateListener() {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
