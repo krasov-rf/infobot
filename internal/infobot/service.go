@@ -2,12 +2,17 @@ package infobot
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/krasov-rf/infobot/pkg/serializers"
 	settings "github.com/krasov-rf/infobot/pkg/settings/infobot"
 	infobotdb "github.com/krasov-rf/infobot/pkg/storage/infobot"
 	infobotdb_pg "github.com/krasov-rf/infobot/pkg/storage/infobot/postgres"
+	"github.com/robfig/cron/v3"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -18,6 +23,7 @@ type Bot struct {
 
 	ctx    context.Context
 	config *settings.Config
+	cron   *cron.Cron
 
 	DB infobotdb.IInfoBotDB
 
@@ -57,34 +63,47 @@ func New(c *settings.Config) (*Bot, error) {
 		DB:     db,
 		ctx:    ctx,
 		config: c,
+		cron:   cron.New(),
 		Router: NewRouter(),
 	}, nil
 }
 
-// старт
 func (b *Bot) Start() {
 	b.InitializeRoutes()
 
-	msg := tgbotapi.NewMessage(b.config.TG_SUPER_ADMIN, "Bot started")
-	_, err := b.Send(msg)
+	err := b.InitializeCron()
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	b.cron.Start()
+	defer b.cron.Stop()
+
 	b.errErrorChan = make(chan error, 10)
 	defer close(b.errErrorChan)
+	go b.errorListener()
+
 	b.updateChan = make(chan tgbotapi.Update, 10)
 	defer close(b.updateChan)
-
-	go b.errorListener()
 	go b.updateListener()
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-
-	updates := b.GetUpdatesChan(u)
-
-	for update := range updates {
-		b.handleUpdate(update)
+	_, err = b.Send(tgbotapi.NewMessage(b.config.TG_SUPER_ADMIN, "Bot started"))
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	go func() {
+		u := tgbotapi.NewUpdate(0)
+		u.Timeout = 60
+		for update := range b.GetUpdatesChan(u) {
+			b.handleUpdate(update)
+		}
+	}()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sigs
+
+	fmt.Println("Остановка бота...")
 }

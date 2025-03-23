@@ -21,7 +21,9 @@ import (
 type Server struct {
 	*tgbotapi.BotAPI
 	infobotpb.UnimplementedInfoBotServiceServer
-	config *settings.Config
+	config       *settings.Config
+	ctx          context.Context
+	errErrorChan chan error
 
 	DB infobotdb.IInfoBotDB
 }
@@ -41,11 +43,16 @@ func New(c *settings.Config) (*Server, error) {
 		BotAPI: bot,
 		DB:     db,
 		config: c,
+		ctx:    context.Background(),
 	}, nil
 }
 
 func (s *Server) Run() {
 	opts := []grpc.ServerOption{}
+
+	s.errErrorChan = make(chan error, 10)
+	defer close(s.errErrorChan)
+	go s.errorListener()
 
 	grpc.UnaryInterceptor(s.ensureValidBasicCredentials)
 	grpc_server := grpc.NewServer(opts...)

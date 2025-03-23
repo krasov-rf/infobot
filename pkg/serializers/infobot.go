@@ -3,6 +3,8 @@ package serializers
 import (
 	"sync"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // Телграмовские пользователь
@@ -67,6 +69,20 @@ type User struct {
 
 	// смещение для пагинационных сообщений
 	offset int
+}
+
+// сайты у которых подошло время для проверки на доступность
+type SiteForChecked struct {
+	// идентификатор сайта
+	Id int `db:"id"`
+	// ссылка на сайт
+	Url string `db:"url"`
+	// работает ли сайт
+	Working bool `db:"bool"`
+	// старый код ответа сайта
+	StatusCode int `db:"status_code"`
+	// пользователи слушающие сайт
+	TgUsers pq.Int64Array `db:"tg_users"`
 }
 
 // Установить userId, пользователя

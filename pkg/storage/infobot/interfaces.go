@@ -15,6 +15,8 @@ type IInfoBotDB interface {
 	TelegramUserRegister(ctx context.Context, user *serializers.UserSerializer) error
 	// получить телеграм пользователя
 	TelegramUserGet(ctx context.Context, user_id int64) (*serializers.UserSerializer, error)
+	// получить телеграм пользователей которые добавили себе сайты
+	RelatedUsersBySites(ctx context.Context, site_ids ...int64) (map[int][]int, error)
 
 	// Вывести пользовательские обращения
 	Feedbacks(ctx context.Context, opt *OptionsInfoBot) ([]*serializers.FeedbackSerializer, int, error)
@@ -29,4 +31,6 @@ type IInfoBotDB interface {
 	MonitoringSiteAdd(ctx context.Context, user_id int64, site_url string, working bool, status_code int) (*serializers.SiteSerializer, error)
 	// обновить сайт
 	MonitoringSiteUpdate(ctx context.Context, user_id int64, site *serializers.SiteSerializer) (*serializers.SiteSerializer, error)
+	// сайты у которых подошло время для проверки
+	MonitoringSitesForCheck(ctx context.Context) ([]*serializers.SiteForChecked, error)
 }

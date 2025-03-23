@@ -8,6 +8,7 @@ import (
 	er "github.com/krasov-rf/infobot/pkg/errors"
 	"github.com/krasov-rf/infobot/pkg/serializers"
 	infobotdb "github.com/krasov-rf/infobot/pkg/storage/infobot"
+	"github.com/lib/pq"
 )
 
 // Зарегестрировать нового телеграм пользователя
@@ -36,6 +37,64 @@ func (d *InfoBotDb) TelegramUserGet(ctx context.Context, user_id int64) (*serial
 		return nil, err
 	}
 	return &res, nil
+}
+
+// сайты у которых подошло время для проверки
+func (d *InfoBotDb) MonitoringSitesForCheck(ctx context.Context) ([]*serializers.SiteForChecked, error) {
+	sqlt := `
+		SELECT 
+			s.id, s.url, s.working, s.status_code, array_agg(t.tg_user_id) as tg_users
+		FROM sites s
+		LEFT JOIN tg_user_sites t ON t.site_id = s.id
+		WHERE t.monitoring = true
+		GROUP BY 1, 2, 3, 4
+		HAVING s.last_checked_at + (MIN(t.duration_minutes) * INTERVAL '1 minute') < NOW()
+	`
+	res := make([]*serializers.SiteForChecked, 0, 5)
+
+	rows, err := d.DB.QueryxContext(ctx, sqlt)
+	if err != nil {
+		return nil, err
+	}
+	for !rows.Next() {
+		var s serializers.SiteForChecked
+		err = rows.StructScan(&s)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, &s)
+	}
+
+	return res, nil
+}
+
+// Получить телеграм пользователей которые добавили себе сайты и включили функцию мониторинга
+func (d *InfoBotDb) RelatedUsersBySites(ctx context.Context, site_ids ...int64) (map[int][]int, error) {
+	res := make(map[int][]int, len(site_ids))
+
+	ids := pq.Int64Array(site_ids)
+
+	sqlt := `
+		SELECT site_id, tg_user_id
+		FROM tg_user_sites
+		WHERE site_id = ANY($1)
+	`
+	rows, err := d.QueryContext(ctx, sqlt, ids)
+	if err != nil {
+		return nil, err
+	}
+	for !rows.Next() {
+		var site_id, user_id int
+		err := rows.Scan(&site_id, &user_id)
+		if err != nil {
+			return nil, err
+		}
+		if r, ok := res[site_id]; ok {
+			res[site_id] = append(r, user_id)
+		}
+		res[site_id] = []int{user_id}
+	}
+	return res, nil
 }
 
 // вывести сайты
@@ -208,7 +267,7 @@ func (d *InfoBotDb) MonitoringSiteDelete(ctx context.Context, user_id int64, sit
 func (d *InfoBotDb) Feedbacks(ctx context.Context, opt *infobotdb.OptionsInfoBot) ([]*serializers.FeedbackSerializer, int, error) {
 	sqlt, err := infobotdb.Template("feedbacks", `
 		SELECT 
-			f.id, f.name, f.contact, f.message, f.created_at,
+			f.id, f.name, f.contact, f.message, f.feedback_url, f.created_at,
 			COUNT(*) OVER (PARTITION BY f.site_id) AS count_feedbacks
 		FROM feedbacks f
 		LEFT JOIN sites s ON f.site_id = s.id
@@ -233,7 +292,7 @@ func (d *InfoBotDb) Feedbacks(ctx context.Context, opt *infobotdb.OptionsInfoBot
 		var s serializers.FeedbackSerializer
 		err = row.Scan(
 			&s.Id, &s.Name,
-			&s.Contact, &s.Message,
+			&s.Contact, &s.Message, &s.FeedbackUrl,
 			&s.CreatedAt, &cnt,
 		)
 		if err != nil {
@@ -248,8 +307,8 @@ func (d *InfoBotDb) Feedbacks(ctx context.Context, opt *infobotdb.OptionsInfoBot
 // Добавить пользовательское обращение
 func (d *InfoBotDb) FeedbackInsert(ctx context.Context, user *serializers.FeedbackSerializer) error {
 	sqlt := `
-		INSERT INTO feedbacks (site_id, name, contact, message, created_at)
-		VALUES (:site_id, :name, :contact, :message, :created_at)
+		INSERT INTO feedbacks (site_id, name, contact, message, feedback_url, created_at)
+		VALUES (:site_id, :name, :contact, :message, :feedback_url, :created_at)
 	`
 	_, err := d.NamedExecContext(ctx, sqlt, user)
 	if err != nil {

@@ -39,7 +39,7 @@ func (s *Server) Feedback(ctx context.Context, in *infobotpb.FeedbackRequest) (*
 		return nil, err
 	}
 
-	msg := tgbotapi.NewMessage(b.config.TG_SUPER_ADMIN, "Bot started")
+	msg := tgbotapi.NewMessage(s.config.TG_SUPER_ADMIN, "Bot started")
 	_, err = s.BotAPI.Send(msg)
 	if err != nil {
 		s.errErrorChan <- err

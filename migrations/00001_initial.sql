@@ -73,6 +73,7 @@ CREATE TABLE "feedbacks" (
   "name" varchar(300) NOT NULL,
   "contact" varchar(300) NOT NULL,
   "message" varchar(500) NOT NULL,
+  "feedback_url" varchar(800) NOT NULL,
   "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 COMMENT ON TABLE feedbacks IS 'Обращения от пользователей с обслуживаемых сайтов';
