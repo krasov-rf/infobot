@@ -21,9 +21,9 @@ type Bot struct {
 	*Router
 	*tgbotapi.BotAPI
 
-	ctx    context.Context
 	config *settings.Config
 	cron   *cron.Cron
+	ctx    context.Context
 
 	DB infobotdb.IInfoBotDB
 
@@ -56,12 +56,9 @@ func New(c *settings.Config) (*Bot, error) {
 		return nil, err
 	}
 
-	ctx := context.Background()
-
 	return &Bot{
 		BotAPI: bot,
 		DB:     db,
-		ctx:    ctx,
 		config: c,
 		cron:   cron.New(),
 		Router: NewRouter(),
@@ -69,6 +66,13 @@ func New(c *settings.Config) (*Bot, error) {
 }
 
 func (b *Bot) Start() {
+	var cancel context.CancelFunc
+
+	b.ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+
+	defer b.DB.Close(b.ctx)
+
 	b.InitializeRoutes()
 
 	err := b.InitializeCron()

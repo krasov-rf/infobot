@@ -174,7 +174,7 @@ func (b *Bot) HB_DelSite(ctx *BotContext, update tgbotapi.Update) {
 		return
 	}
 
-	err := b.DB.MonitoringSiteDelete(b.ctx, ctx.user.GetUserId(), actionSite.Id)
+	err := b.DB.MonitoringSiteDelete(ctx, ctx.user.GetUserId(), actionSite.Id)
 	if err != nil {
 		b.errChan <- err
 		return
