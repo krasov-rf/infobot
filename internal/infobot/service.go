@@ -96,7 +96,7 @@ func (b *Bot) Start() {
 		u := tgbotapi.NewUpdate(0)
 		u.Timeout = 60
 		for update := range b.GetUpdatesChan(u) {
-			b.handleUpdate(update)
+			b.handleUpdate(b.ctx, update)
 		}
 	}()
 

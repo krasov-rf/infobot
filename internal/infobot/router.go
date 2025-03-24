@@ -3,6 +3,7 @@ package infobot
 import (
 	"context"
 	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
@@ -76,15 +77,13 @@ func (r *Router) Run(updates tgbotapi.UpdatesChannel) error {
 	return nil
 }
 
-func (r *Router) handleUpdate(update tgbotapi.Update) {
+func (r *Router) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 	var (
 		route  string
-		ctx    context.Context
 		botCtx BotContext
 	)
 
-	ctx = context.Background()
-	botCtx.Context = ctx
+	botCtx.Context, _ = context.WithTimeout(ctx, 3*time.Second)
 
 	// обработчики нажатий на кнопку
 

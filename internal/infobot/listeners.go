@@ -23,7 +23,7 @@ func (b *Bot) updateListener() {
 				if !ok {
 					return
 				}
-				b.handleUpdate(update)
+				b.handleUpdate(b.ctx, update)
 			}
 		}
 	}()
