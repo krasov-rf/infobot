@@ -28,19 +28,19 @@ func (b *Bot) KeyboardHomePage(a *serializers.User) *tgbotapi.InlineKeyboardMark
 }
 
 // Клавиатура вывода всех сайтов
-func (b *Bot) KeyboardFeedbacks(a *serializers.User) (*tgbotapi.InlineKeyboardMarkup, error) {
-	site := a.GetActionSite()
+func (b *Bot) KeyboardFeedbacks(ctx *BotContext) (*tgbotapi.InlineKeyboardMarkup, error) {
+	site := ctx.user.GetActionSite()
 	if site == nil {
 		return nil, errors.New("не указан сайт")
 	}
 
-	offset := a.GetOffset()
+	offset := ctx.user.GetOffset()
 	opts := infobotdb.NewInfoBotOptions(
 		infobotdb.WithOffset(offset),
 		infobotdb.WithSiteId(site.Id),
 	)
 
-	feedbacks, cnt, err := b.DB.Feedbacks(b.ctx, opts)
+	feedbacks, cnt, err := b.DB.Feedbacks(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -79,14 +79,14 @@ func (b *Bot) KeyboardFeedbacks(a *serializers.User) (*tgbotapi.InlineKeyboardMa
 }
 
 // Клавиатура вывода всех сайтов
-func (b *Bot) KeyboardSites(a *serializers.User) (*tgbotapi.InlineKeyboardMarkup, error) {
-	offset := a.GetOffset()
+func (b *Bot) KeyboardSites(ctx *BotContext) (*tgbotapi.InlineKeyboardMarkup, error) {
+	offset := ctx.user.GetOffset()
 	opts := infobotdb.NewInfoBotOptions(
 		infobotdb.WithOffset(offset),
-		infobotdb.WithUserId(a.GetUserId()),
+		infobotdb.WithUserId(ctx.user.GetUserId()),
 	)
 
-	sites, cnt, err := b.DB.MonitoringSites(b.ctx, opts)
+	sites, cnt, err := b.DB.MonitoringSites(ctx, opts)
 	if err != nil {
 		return nil, err
 	}

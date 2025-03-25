@@ -92,7 +92,7 @@ func (b *Bot) HB_TelegramId(ctx *BotContext, update tgbotapi.Update) {
 // вывести обращения пользователей
 func (b *Bot) HB_Feedbacks(ctx *BotContext, update tgbotapi.Update) {
 	ctx.user.SetAction(serializers.ACTION_FEEDBACK_LIST)
-	keyboard, err := b.KeyboardFeedbacks(ctx.user)
+	keyboard, err := b.KeyboardFeedbacks(ctx)
 	if err != nil {
 		b.errChan <- err
 	}
@@ -174,7 +174,7 @@ func (b *Bot) HB_DelSite(ctx *BotContext, update tgbotapi.Update) {
 		return
 	}
 
-	err := b.DB.MonitoringSiteDelete(b.ctx, ctx.user.GetUserId(), actionSite.Id)
+	err := b.DB.MonitoringSiteDelete(ctx, ctx.user.GetUserId(), actionSite.Id)
 	if err != nil {
 		b.errChan <- err
 		return
@@ -189,7 +189,7 @@ func (b *Bot) HB_Sites(ctx *BotContext, update tgbotapi.Update) {
 		ctx.user.SetOffset(0)
 		ctx.user.SetAction(serializers.ACTION_SITE_LIST)
 	}
-	keyboard, err := b.KeyboardSites(ctx.user)
+	keyboard, err := b.KeyboardSites(ctx)
 	if err != nil {
 		b.errChan <- err
 		return
