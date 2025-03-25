@@ -8,7 +8,7 @@ import (
 )
 
 func (b *Bot) InitializeCron() error {
-	_, err := b.cron.AddFunc("@every 10s", func() {
+	_, err := b.cron.AddFunc("@every 1m", func() {
 		sites, err := b.DB.MonitoringSitesForCheck(b.ctx)
 		if err != nil {
 			b.errChan <- err
