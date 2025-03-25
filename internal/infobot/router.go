@@ -81,12 +81,13 @@ func (r *Router) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 	var (
 		route  string
 		botCtx BotContext
+		cancel context.CancelFunc
 	)
 
-	botCtx.Context, _ = context.WithTimeout(ctx, 3*time.Second)
+	botCtx.Context, cancel = context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
 
 	// обработчики нажатий на кнопку
-
 	if update.CallbackQuery != nil {
 		data := strings.Split(update.CallbackQuery.Data, "|")
 		route = data[0]

@@ -2,7 +2,6 @@ package infobot
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -27,7 +26,7 @@ type Bot struct {
 
 	DB infobotdb.IInfoBotDB
 
-	updateChan chan tgbotapi.Update
+	updateChan tgbotapi.UpdatesChannel
 	errChan    chan error
 }
 
@@ -73,41 +72,43 @@ func (b *Bot) Start() {
 
 	defer b.DB.Close(b.ctx)
 
+	logFile, err := os.OpenFile("bot.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("Ошибка при открытии файла логов: %v", err)
+	}
+	defer logFile.Close()
+
+	log.SetOutput(logFile)
+
 	b.InitializeRoutes()
 
-	err := b.InitializeCron()
+	err = b.InitializeCron()
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
 
 	b.cron.Start()
 	defer b.cron.Stop()
 
+	updater := tgbotapi.NewUpdate(0)
+	updater.Timeout = 60
+	b.updateChan = b.GetUpdatesChan(updater)
+	go b.updateListener()
+
 	b.errChan = make(chan error, 10)
 	defer close(b.errChan)
 	go b.errorListener()
 
-	b.updateChan = make(chan tgbotapi.Update, 10)
-	defer close(b.updateChan)
-	go b.updateListener()
-
 	_, err = b.Send(tgbotapi.NewMessage(b.config.TG_SUPER_ADMIN, "Bot started"))
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
-
-	go func() {
-		u := tgbotapi.NewUpdate(0)
-		u.Timeout = 60
-		for update := range b.GetUpdatesChan(u) {
-			b.handleUpdate(b.ctx, update)
-		}
-	}()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
 	<-sigs
 
-	fmt.Println("Остановка бота...")
+	log.Print("Бот остановлен")
 }

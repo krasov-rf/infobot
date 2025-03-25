@@ -1,6 +1,7 @@
 package infobot
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -38,8 +39,10 @@ func (b *Bot) errorListener() {
 					return
 				}
 				if err != nil {
-					msg := tgbotapi.NewMessage(b.config.TG_SUPER_ADMIN, fmt.Sprintf("Ошибка в ходе выполенния бота: %v", err))
-					b.Send(msg)
+					_, err_tg := b.Send(tgbotapi.NewMessage(b.config.TG_SUPER_ADMIN, fmt.Sprintf("Ошибка в ходе выполенния бота: %v", err)))
+					if err_tg != nil {
+						err = errors.Join(err, err_tg)
+					}
 					log.Print(err)
 				}
 			}

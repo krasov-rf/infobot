@@ -1,6 +1,8 @@
 package infobot
 
-import "github.com/krasov-rf/infobot/pkg/serializers"
+import (
+	"github.com/krasov-rf/infobot/pkg/serializers"
+)
 
 func (b *Bot) InitializeRoutes() {
 	b.Use(b.RegisterUserMiddleware)
