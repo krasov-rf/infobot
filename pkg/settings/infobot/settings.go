@@ -52,5 +52,5 @@ type DbSettings struct {
 }
 
 func (ds *DbSettings) UrlPostgres() string {
-	return fmt.Sprintf(`postgres://%s:%s@%s:%s/%s`, ds.User, ds.Passw, ds.Host, ds.Port, ds.DbName)
+	return fmt.Sprintf(`postgres://%s:%s@%s:%s/%s?search_path=%s`, ds.User, ds.Passw, ds.Host, ds.Port, ds.DbName, ds.Schema)
 }
