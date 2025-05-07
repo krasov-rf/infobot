@@ -77,7 +77,6 @@ func (b *Bot) Start() {
 		log.Fatalf("Ошибка при открытии файла логов: %v", err)
 	}
 	defer logFile.Close()
-
 	log.SetOutput(logFile)
 
 	b.InitializeRoutes()

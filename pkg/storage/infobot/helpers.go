@@ -12,6 +12,7 @@ import (
 
 var QUERY_LIMIT = 5
 
+// генерация секретного ключа указанной длины
 func GenerateSecretKey(length int) (string, error) {
 	key := make([]byte, length)
 	_, err := rand.Read(key)
@@ -51,7 +52,7 @@ func EscapeMarkdownV2(text string) string {
 	return text
 }
 
-// генерация скрипта
+// генерация sql скрипта
 func Template(name, sqlt string, data *OptionsInfoBot) (string, error) {
 
 	var re = regexp.MustCompile(`[ ]{2,}|[\t\n]+`)

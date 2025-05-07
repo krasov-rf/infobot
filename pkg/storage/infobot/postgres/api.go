@@ -329,8 +329,18 @@ func (d *InfoBotDb) Feedbacks(ctx context.Context, opt *infobotdb.OptionsInfoBot
 // Добавить пользовательское обращение
 func (d *InfoBotDb) FeedbackInsert(ctx context.Context, user *serializers.FeedbackSerializer) error {
 	sqlt := `
-		INSERT INTO feedbacks (site_id, name, contact, message, feedback_url, created_at)
-		VALUES (:site_id, :name, :contact, :message, :feedback_url, :created_at)
+		INSERT INTO feedbacks (
+			site_id, 
+			name, contact, message, 
+			feedback_url, 
+			created_at
+		)
+		VALUES (
+			:site_id, 
+			:name, :contact, :message, 
+			:feedback_url, 
+			:created_at
+		)
 	`
 	_, err := d.NamedExecContext(ctx, sqlt, user)
 	if err != nil {
