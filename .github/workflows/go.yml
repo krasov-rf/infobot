@@ -10,9 +10,24 @@ on:
     branches: [ "main" ]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        options: >-
+          --health-ccmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
     steps:
     - uses: actions/checkout@v4
 
@@ -21,8 +36,42 @@ jobs:
       with:
         go-version: '1.24.3'
 
+    - name: Wait for PostgreSQL to be ready
+      run: |
+        until pg_isready -h localhost -p 5432 -U postgres; do
+          echo "Waiting for PostgreSQL..."
+          sleep 2
+        done
+      env:
+        PGHOST: localhost
+        PGPORT: 5432
+        PGPASSWORD: testpass
+
+    - name: Set environment variables for database
+      run: |
+        echo "DB_HOST=localhost" >> $GITHUB_ENV
+        echo "DB_PORT=5432" >> $GITHUB_ENV
+        echo "DB_USER=testuser" >> $GITHUB_ENV
+        echo "DB_PASSWORD=testpass" >> $GITHUB_ENV
+        echo "DB_NAME=testdb" >> $GITHUB_ENV
+
+
+    - name: Install dependencies
+      run: go mod tidy
+        
     - name: Build
       run: go build -v ./...
 
+
+    - name: Run Goose migrations
+      run: 
+        goose -dir migrations postgres "user=testuser password=testpass dbname=testdb host=localhost port=5432 sslmode=disable" up
+     
     - name: Test
+      env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: testuser
+          DB_PASSW: testpass
+          DB_NAME: testdb
       run: go test -v ./... --short
